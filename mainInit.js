@@ -13,6 +13,13 @@ function mainInit({
     uniq,
   },
 }) {
+  const mergeMany = reduce(mergeRight, {});
+
+  function logk(k, v) {
+    console.log(k, v);
+    return v;
+  }
+
   // lm fw lb lat cap al oat soy lf x l r s 1 2 lf ice weak|wk chai mocha dirty esp haz van car
 
   const sizes = {
@@ -67,22 +74,6 @@ function mainInit({
     },
   }
 
-  /*
-  const coffeeSpec = {
-    flatWhite: {
-      keys: ['fw'], 
-    },
-    mocha: {
-    },
-    dirtyChai: 
-  }
-  */
-
-  function logk(k, v) {
-    console.log(k, v);
-    return v;
-  }
-
   const naming = {
     flatWhite: {
       keys: ['fw', 'flat'],
@@ -105,8 +96,6 @@ function mainInit({
     coffeeVariation,
     extras,
   ];
-
-  const mergeMany = reduce(mergeRight, {});
 
   const lookup = order.reduce((acc, obj) => {
     const l = Object.values(obj);
