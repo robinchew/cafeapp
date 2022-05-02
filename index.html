@@ -2,11 +2,14 @@
     <head>
         <script src="ramda.min.js"></script>
         <script src="mainInit.js"></script>
+        <script src="mithril.js"></script>
+        <script src="patchinko-immutable.js"></script>
+        <script src="stream.js"></script>
         <script src="assertionsInit.js"></script>
     </head>
     <body>
         <script>
-            mainInit({ ramda: R, assertions: assertionsInit() });
+            mainInit({ ramda: R, assertions: assertionsInit(), mithril: m, stream: stream, patchinko: O }).run();
         </script>
     </body>
 </html>

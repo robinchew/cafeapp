@@ -2,9 +2,16 @@ function mainInit({
   assertions: {
     assert,
   },
+  mithril: m,
+  patchinko: O,
   ramda: {
+    append,
+    assoc,
     fromPairs,
     identity,
+    includes,
+    insert,
+    last,
     map,
     mergeRight,
     reduce,
@@ -12,12 +19,23 @@ function mainInit({
     unnest,
     uniq,
   },
+  stream,
 }) {
+  const ENTER = 13;
   const mergeMany = reduce(mergeRight, {});
 
   function logk(k, v) {
     console.log(k, v);
     return v;
+  }
+
+  function valuesAreUnique(arr) {
+    return uniq(arr).length === arr.length;
+  }
+
+  function join(arr) {
+    assert(arr.length >= 2, 'Must join only 2 or more items in array');
+    return arr.slice(0, -1).join(', ') + ' and ' + last(arr);
   }
 
   // lm fw lb lat cap al oat soy lf x l r s 1 2 lf ice weak|wk chai mocha dirty esp haz van car
@@ -54,16 +72,6 @@ function mainInit({
       keys: ['x'],
       calc: v => v + 0.5,
     },
-    mocha: {
-      keys: ['moc', 'mocha'],
-      title: 'Mocha',
-      calc: v => v + 0.5
-    },
-    dirtyChai: {
-      keys: ['dirty'],
-      title: 'Dirty Chai',
-      calc: v => v + 0.5,
-    },
   }
 
   const extras = {
@@ -87,29 +95,67 @@ function mainInit({
       keys: ['cap',],
       title: 'Cappucino',
     },
+    mocha: {
+      keys: ['moc', 'mocha'],
+      title: 'Mocha',
+      calc: v => v + 0.5
+    },
+    dirtyChai: {
+      keys: ['dirty'],
+      title: 'Dirty Chai',
+      calc: v => v + 0.5,
+    },
   }
 
-  const order = [
-    naming,
-    sizes,
-    milk,
-    coffeeVariation,
-    extras,
+  const order2 = [
+    {
+      title: 'Names',
+      items: naming,
+      errors: {
+        one_option_only: names => 'Too many product names. You picked ' + join(names),
+      },
+    },
+    {
+      title: 'Sizes',
+      items: sizes,
+      errors: {
+        one_option_only: sizes => 'Pick just 1 size. You picked ' + join(sizes),
+      },
+    },
+    {
+      title: 'Milk',
+      items: milk,
+      errors: {
+        one_option_only: types => 'Pick just 1 type of milk instead of ' + join(types),
+      },
+    },
+    {
+      title: 'Extra Coffee',
+      items: coffeeVariation,
+      errors: {
+        one_option_only: () => 'Pick just 1',
+      },
+    },
+    {
+      title: 'Extras',
+      items: extras,
+      errors: {
+        one_option_only: () => 'Pick just 1',
+      },
+    },
   ];
 
-  const lookup = order.reduce((acc, obj) => {
-    const l = Object.values(obj);
+  const order = order2.map(({ items }) => items);
+
+  const lookup = order2.reduce((acc, obj) => {
+    const l = Object.values(obj.items);
     return {
       ...acc,
-      ...mergeMany(l.map(o => mergeMany(o.keys.map(key => ({ [key]: o }))))),
+      ...mergeMany(l.map(o => mergeMany(o.keys.map(key => ({ [key]: { ...o, group: obj, key } }))))),
     };
   }, {});
 
   console.log('lk', lookup);
-
-  function valuesAreUnique(arr) {
-    return uniq(arr).length === arr.length;
-  }
 
   function determine(variables) {
     const orderedKeys = unnest(unnest(order.map(obj => Object.values(obj).map(({ keys }) => keys))));
@@ -120,16 +166,61 @@ function mainInit({
     // variables.
 
     return reduce(
-      (acc, v) => ({
-        title: lookup[v].title ? ((acc.title ? acc.title + ' ' : '') + lookup[v].title) : acc.title,
-        price: (lookup[v].calc || identity)(acc.price)
-      }),
-      { title: '', price: 0 },
+      (acc, v) => {
+        const options = acc.usedOptions.filter(opt => opt.group === lookup[v].group);
+        if (options.length >= 1) {
+          console.log(v, lookup[v]);
+          throw Error(lookup[v].group.errors.one_option_only(options.map(({ key }) => key).concat([lookup[v].key])));
+        }
+        return {
+          title: lookup[v].title ? ((acc.title ? acc.title + ' ' : '') + lookup[v].title) : acc.title,
+          price: (lookup[v].calc || identity)(acc.price),
+          usedOptions: append(lookup[v], acc.usedOptions),
+        };
+      },
+      { title: '', price: 0, usedOptions: [] },
       orderedVariables);
   }
 
-  logk('calc', determine(['fw', 'oat', 'r', 'x', 'l', 'haz']))
+  // logk('calc', determine(['fw', 'oat', 'x', 'l', 'haz', 'al']))
+
+  const update = stream();
+  stream
+    .scan(
+      (model, f) => f(model),
+      { inputs: [''] },
+      update)
+    .map(model => render(model));
+
+  function newInput(value) {
+    update(mod => O(mod, { inputs: O(append('')) }));
+  }
+
+  function fillInput(i, value){
+    console.log('fill', i, value);
+    update(mod => O(mod, { inputs: O(assoc(i, value)) }));
+  }
+
+  function view(state) {
+    console.log('st', state.inputs);
+    return m('div', state.inputs.map((text, i) =>
+      console.log("i", i) ||
+      m('input', {
+        oninput: e => fillInput(i, e.currentTarget.value),
+        onkeyup: e => newInput(e.currentTarget.value),
+        value: text,
+      })
+    ));
+  }
+
+  function render(model) {
+      m.render(document.body, view(model));
+  }
 
   return {
+    run() {
+      // render();
+      //update(v => v);
+    },
   }
 }
