@@ -25,6 +25,9 @@ function mainInit({
   const ENTER = 13;
   const mergeMany = reduce(mergeRight, {});
 
+  function split() {
+  }
+
   function logk(k, v) {
     console.log(k, v);
     return v;
@@ -63,12 +66,15 @@ function mainInit({
     ...map(obj => mergeRight(obj, { calc: v => v + 1 }), {
       oat: {
         keys: ['oat'],
+        title: 'Oat',
       },
       soy: {
         keys: ['soy'],
+        title: 'Soy',
       },
       almond: {
         keys: ['al'],
+        title:'Almond'
       },
     }),
   };
@@ -162,7 +168,7 @@ function mainInit({
       errors: {
         one_option_only: sizes => 'Pick just 1 size. You picked ' + join(sizes),
       },
-      default: medium,
+      default: 'medium',
     },
     {
       title: 'Milk',
@@ -210,24 +216,23 @@ function mainInit({
     const orderedKeys = unnest(unnest(order.map(obj => Object.values(obj).map(({ keys }) => keys))));
     assert(valuesAreUnique(orderedKeys), 'orderedKeys has duplicate values');
 
-    const orderedVariables = sortBy(v => orderedKeys.indexOf(v), variables);
-    //const sorted 
-    // variables.
+    const orderedVariables = sortBy(v => orderedKeys.indexOf(v), variables.map(v => {
+      if (v === undefined) {
+        throw Error(`Unknown lookup '${v}'`);
+      }
+      return lookup[v];
+    }));
 
     return reduce(
       (acc, v) => {
-        const options = acc.usedOptions.filter(opt => opt.group === lookup[v].group);
+        const options = acc.usedOptions.filter(opt => opt.group === v.group);
         if (options.length >= 1) {
-          console.log(v, lookup[v]);
-          throw Error(lookup[v].group.errors.one_option_only(options.map(({ key }) => key).concat([lookup[v].key])));
-        }
-        if (lookup[v] === undefined) {
-          throw Error(`Unknown lookup '${v}'`);
+          throw Error(v.group.errors.one_option_only(options.map(({ key }) => key).concat([v.key])));
         }
         return {
-          title: lookup[v].title ? ((acc.title ? acc.title + ' ' : '') + lookup[v].title) : acc.title,
-          price: (lookup[v].calc || identity)(acc.price),
-          usedOptions: append(lookup[v], acc.usedOptions),
+          title: v.title ? ((acc.title ? acc.title + ' ' : '') + v.title) : acc.title,
+          price: (v.calc || identity)(acc.price),
+          usedOptions: append(v, acc.usedOptions),
         };
       },
       { title: '', price: 0, usedOptions: [] },
