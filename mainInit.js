@@ -16,6 +16,7 @@ function mainInit({
     mergeRight,
     reduce,
     sortBy,
+    sum,
     unnest,
     uniq,
   },
@@ -55,32 +56,49 @@ function mainInit({
     },
   }
 
-  const milk = map(obj => mergeRight(obj, { calc: v => v + 1 }), {
-    oat: {
-      keys: ['oat'],
+  const milk = {
+    skim: {
+      keys: ['sk', 'skinny', 'skim'],
     },
-    soy: {
-      keys: ['soy'],
-    },
-    almond: {
-      keys: ['al'],
-    },
-  });
+    ...map(obj => mergeRight(obj, { calc: v => v + 1 }), {
+      oat: {
+        keys: ['oat'],
+      },
+      soy: {
+        keys: ['soy'],
+      },
+      almond: {
+        keys: ['al'],
+      },
+    }),
+  };
 
   const coffeeVariation = {
     extraShot: {
       keys: ['x'],
       calc: v => v + 0.5,
     },
+    longMac: {
+      keys: ['lm'],
+      calc: v => v + 0.5,
+      title: 'Long Macchiato',
+    },
   }
 
-  const extras = {
+  const extras = map(obj => mergeRight(obj, { calc: v => v + 0.5 }), {
     hazel: {
       keys: ['haz'],
       title: 'Hazelnut',
-      calc: v => v + 0.5,
     },
-  }
+    caramel: {
+      keys: ['car'],
+      title: 'Caramel',
+    },
+    honey: {
+      keys: ['hon'],
+      title: 'Honey',
+    },
+  });
 
   const naming = {
     flatWhite: {
@@ -95,6 +113,10 @@ function mainInit({
       keys: ['cap',],
       title: 'Cappucino',
     },
+    longBlack: {
+      keys: ['lb', 'black'],
+      title: 'Long Black',
+    },
     mocha: {
       keys: ['moc', 'mocha'],
       title: 'Mocha',
@@ -105,7 +127,26 @@ function mainInit({
       title: 'Dirty Chai',
       calc: v => v + 0.5,
     },
+    chai: {
+      keys: ['chai'],
+      title: 'Chai',
+    },
+    hotChoc: {
+      keys: ['choc'],
+      title: 'Hot Chocolate',
+    },
   }
+
+  const sugar = {
+    oneTsp: {
+      keys: [1],
+      title: '1 tsp sugar',
+    },
+    twoTsp: {
+      keys: [2],
+      title: '2 tsp sugar',
+    },
+  };
 
   const order2 = [
     {
@@ -121,6 +162,7 @@ function mainInit({
       errors: {
         one_option_only: sizes => 'Pick just 1 size. You picked ' + join(sizes),
       },
+      default: medium,
     },
     {
       title: 'Milk',
@@ -139,6 +181,13 @@ function mainInit({
     {
       title: 'Extras',
       items: extras,
+      errors: {
+        one_option_only: () => 'Pick just 1',
+      },
+    },
+    {
+      title: 'Sugar',
+      items: sugar,
       errors: {
         one_option_only: () => 'Pick just 1',
       },
@@ -172,6 +221,9 @@ function mainInit({
           console.log(v, lookup[v]);
           throw Error(lookup[v].group.errors.one_option_only(options.map(({ key }) => key).concat([lookup[v].key])));
         }
+        if (lookup[v] === undefined) {
+          throw Error(`Unknown lookup '${v}'`);
+        }
         return {
           title: lookup[v].title ? ((acc.title ? acc.title + ' ' : '') + lookup[v].title) : acc.title,
           price: (lookup[v].calc || identity)(acc.price),
@@ -182,7 +234,37 @@ function mainInit({
       orderedVariables);
   }
 
-  // logk('calc', determine(['fw', 'oat', 'x', 'l', 'haz', 'al']))
+  //logk('calc', determine(['fw', 'oat', 'x', 'l', 'haz', 'al']))
+  const orderList = `
+    fw al
+    skinny chai
+    cap
+    cap
+    fw
+    latte
+    latte
+    lm
+    s lb x
+    latte x
+    lat car
+    lat car
+    lat car
+    al lat
+    chai oat
+    lb hon
+    fw al
+    skim cap 1
+    chai
+    choc
+  `;
+  const determined = orderList
+    .split('\n')
+    .filter(s => s.replaceAll(' ', ''))
+    .map(line => determine(line.split(' ').filter(identity)));
+
+  logk('all', JSON.stringify(determined.map(d => d.title + ' = ' + d.price), null, ' '));
+
+  logk('sum', sum(determined.map(d => d.price)));
 
   const update = stream();
   stream
