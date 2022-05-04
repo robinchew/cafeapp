@@ -293,6 +293,7 @@ function mainInit({
     choc
     mocha l
   `;
+
   const determined = orderList
     .split('\n')
     .filter(s => s.replaceAll(' ', ''))
@@ -305,7 +306,9 @@ function mainInit({
   stream
     .scan(
       (model, f) => f(model),
-      { inputs: [''] },
+      {
+        text: orderList,
+      },
       update)
     .map(model => render(model));
 
@@ -319,13 +322,35 @@ function mainInit({
   }
 
   function view(state) {
-    return m('div', state.inputs.map((text, i) =>
-      m('input', {
-        oninput: e => fillInput(i, e.currentTarget.value),
-        onkeyup: e => newInput(e.currentTarget.value),
-        value: text,
-      })
-    ));
+    return m('div',
+      m('style', `
+        body {
+          margin:0;
+        }
+      `),
+      m('table',
+        {
+          style: {
+            height: '100%',
+            width: '100%',
+          },
+        },
+        m('tr',
+          {
+            style: {
+            },
+          },
+          m('td',
+            m('textarea', {
+              style: {
+                width: '100%',
+                height: '100%',
+              },
+              oninput: e => fillInput(i, e.currentTarget.value),
+              onkeyup: e => newInput(e.currentTarget.value),
+              value: state.text,
+            })),
+          m('td', 00))));
   }
 
   function render(model) {
@@ -334,7 +359,6 @@ function mainInit({
 
   return {
     run() {
-      // render();
       //update(v => v);
     },
   }
