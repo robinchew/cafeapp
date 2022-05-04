@@ -47,14 +47,17 @@ function mainInit({
   const sizes = {
     small: {
       keys: ['s'],
+      title: 'Small',
       calc: () => 4.5,
     },
     medium: {
       keys: ['m', 'r'],
+      title: 'Medium',
       calc: () => 5,
     },
     large: {
       keys: ['l'],
+      title: 'Large',
       calc: () => 5.5,
     },
   }
@@ -82,6 +85,7 @@ function mainInit({
   const coffeeVariation = {
     extraShot: {
       keys: ['x'],
+      title: 'Extra Shot',
       calc: v => v + 0.5,
     },
     longMac: {
@@ -145,30 +149,31 @@ function mainInit({
 
   const sugar = {
     oneTsp: {
-      keys: [1],
+      keys: ['1'],
       title: '1 tsp sugar',
     },
     twoTsp: {
-      keys: [2],
+      keys: ['2'],
       title: '2 tsp sugar',
     },
   };
 
   const order2 = [
     {
-      title: 'Names',
-      items: naming,
-      errors: {
-        one_option_only: names => 'Too many product names. You picked ' + join(names),
-      },
-    },
-    {
       title: 'Sizes',
       items: sizes,
       errors: {
         one_option_only: sizes => 'Pick just 1 size. You picked ' + join(sizes),
       },
+      required: true,
       default: 'medium',
+    },
+    {
+      title: 'Names',
+      items: naming,
+      errors: {
+        one_option_only: names => 'Too many product names. You picked ' + join(names),
+      },
     },
     {
       title: 'Milk',
@@ -210,18 +215,41 @@ function mainInit({
     };
   }, {});
 
-  console.log('lk', lookup);
-
   function determine(variables) {
-    const orderedKeys = unnest(unnest(order.map(obj => Object.values(obj).map(({ keys }) => keys))));
+    const orderedKeys = unnest(unnest(order.map(obj => Object.values(obj).map(({ keys }) => {
+      keys.forEach(key => assert(typeof key === 'string', `Keys must be string. '${key}' is not string.`));
+      return keys;
+    }))));
     assert(valuesAreUnique(orderedKeys), 'orderedKeys has duplicate values');
 
-    const orderedVariables = sortBy(v => orderedKeys.indexOf(v), variables.map(v => {
+    const orderedVariables = sortBy(v => orderedKeys.indexOf(v), variables).map(v => {
       if (v === undefined) {
-        throw Error(`Unknown lookup '${v}'`);
+        throw Error('Undefined key for lookup');
       }
-      return lookup[v];
-    }));
+      const looked = lookup[v];
+      if (looked === undefined) {
+        throw Error(`Nothing in lookup for '${v}'`);
+      }
+      return looked;
+    });
+
+    const [completeVariables, otherVariables] = reduce(
+      ([acc, rest], g) => {
+        if (rest.length && g === rest[0].group) {
+          return [append(rest[0], acc), rest.slice(1)];
+        }
+        if (g.required) {
+          if (g.default) {
+            return [append({ ...g.items[g.default], group: g }, acc), rest];
+          }
+          throw Error(`'${g.title}' group is required but unspecified!`);
+        }
+        return [acc, rest];
+      },
+      [[], orderedVariables],
+      order2);
+
+    assert(otherVariables.length === 0, 'Left over variables ' + otherVariables.map(({ title }) => title).join(' '));
 
     return reduce(
       (acc, v) => {
@@ -236,10 +264,12 @@ function mainInit({
         };
       },
       { title: '', price: 0, usedOptions: [] },
-      orderedVariables);
+      completeVariables);
   }
 
-  //logk('calc', determine(['fw', 'oat', 'x', 'l', 'haz', 'al']))
+  assert(determine(['cap']).price === 5, 'Price is not 5, maybe medium size is not assumed.');
+  assert(determine(['moc', 'l']).price === 6, 'moc test');
+
   const orderList = `
     fw al
     skinny chai
@@ -261,6 +291,7 @@ function mainInit({
     skim cap 1
     chai
     choc
+    mocha l
   `;
   const determined = orderList
     .split('\n')
@@ -268,7 +299,6 @@ function mainInit({
     .map(line => determine(line.split(' ').filter(identity)));
 
   logk('all', JSON.stringify(determined.map(d => d.title + ' = ' + d.price), null, ' '));
-
   logk('sum', sum(determined.map(d => d.price)));
 
   const update = stream();
@@ -289,9 +319,7 @@ function mainInit({
   }
 
   function view(state) {
-    console.log('st', state.inputs);
     return m('div', state.inputs.map((text, i) =>
-      console.log("i", i) ||
       m('input', {
         oninput: e => fillInput(i, e.currentTarget.value),
         onkeyup: e => newInput(e.currentTarget.value),
